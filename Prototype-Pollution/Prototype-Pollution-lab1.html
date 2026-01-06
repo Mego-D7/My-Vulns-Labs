@@ -31,11 +31,6 @@
         let GetEP = location.search.slice(1).split('=');
         if (GetEP) {
             let Pieces = GetEP[0].split('.') 
-            .flatMap(piece => piece.split('['))
-            .flatMap(piece => piece.split(']'))
-            .flatMap(piece => piece.split('/'))
-            .flatMap(piece => piece.split('&'))
-            .flatMap(piece => piece.split('?'))
             .filter(piece => piece !== '');
             let Patternlen = "Param";
             for (let i in Pieces){Patternlen += `["${Pieces[i]}"]`};
@@ -45,4 +40,5 @@
         }
 </script>
 </body>
+
 </html>
