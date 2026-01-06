@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Pollution</title>
+</head>
+<body>
+    <center><h1 style="color: rgb(221, 148, 53);">Prototype-Pollution</h1></center>
+    <div class="example1">
+        <h2>Enter Your Name</h2><br>
+        <input type="text" id="input1"><br><br>
+        <button type="submit" id="btn1" style="width: 70px;height: 20px;">Submit</button>
+    </div>
+
+<script>
+    // Example 1 //
+    document.getElementById('btn1').addEventListener('click',()=>{
+        let Name = document.getElementById('input1').value;
+        let URL = new URLSearchParams(location.search);
+        URL.set( "Name" , Name );
+        history.replaceState( null , "" , "?" + URL.toString() );
+        let res= {}
+        if(res.admin){
+        let val = window.prompt("Hello Admin What U Wanna?");
+        eval(val);
+        }
+        });
+
+        let Param = {};
+        let GetEP = location.search.slice(1).split('=');
+        if (GetEP) {
+            let Pieces = GetEP[0].split('.') 
+            .flatMap(piece => piece.split('['))
+            .flatMap(piece => piece.split(']'))
+            .flatMap(piece => piece.split('/'))
+            .flatMap(piece => piece.split('&'))
+            .flatMap(piece => piece.split('?'))
+            .filter(piece => piece !== '');
+            let Patternlen = "Param";
+            for (let i in Pieces){Patternlen += `["${Pieces[i]}"]`};
+            Patternlen += ' = "' + GetEP[1] + '"';
+            console.log(Patternlen);
+            eval(Patternlen);
+        }
+</script>
+</body>
+</html>
