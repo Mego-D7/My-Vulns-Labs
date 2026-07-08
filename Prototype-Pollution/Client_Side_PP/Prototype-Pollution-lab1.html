@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Pollution</title>
+</head>
+<body>
+    <center><h1 style="color: rgb(221, 148, 53);">Prototype-Pollution (PP)</h1></center>
+
+<label for="browser">Choose your favourite car's model year:</label>
+<input list="model" id="models" name="models">
+
+<datalist id="model">
+    <option value="2022">
+    <option value="2023">
+    <option value="2024">
+    <option value="2025">
+    <option value="2026">
+</datalist>
+
+<label for="browser">Choose your favourite car's color:</label>
+<input list="color" id="colors" name="colors">
+
+<datalist id="color">
+    <option value="red">
+    <option value="blue">
+    <option value="yellow">
+    <option value="orange">
+    <option value="black">
+</datalist>
+
+<label for="browser">Choose car 's type</label>
+<input list="type" id="types" name="types">
+
+<datalist id="type">
+    <option value="Toyota Camry">
+    <option value="Ford Focus">
+    <option value="BMW 4 Series">
+    <option value="BMW Z4">
+</datalist>
+
+<button type="submit" style="width: 70px;height: 20px;" onclick="send_data()">Submit</button>
+
+<script>
+function send_data() {
+    let URL = new URLSearchParams(location.search);
+    URL.set( "model" , document.getElementById("models").value );
+    URL.set( "style.color" , document.getElementById("colors").value );
+    URL.set( "style.type" , document.getElementById("types").value );
+    history.replaceState( null , "" , "?" + URL.toString() );
+    store_data();
+}
+
+function store_data(){
+    let Url_data = location.search; //?model=2026&style.color=black&style.type=BMW+Z4
+    Url_data = Url_data.replaceAll('__proto__','');
+    Url_data = Url_data.replaceAll('constructor','');
+    Url_data = Url_data.replaceAll('prototype','');
+    console.log(Url_data);
+    
+    let data = Url_data.slice(1).split("&"); // 1- model=2026 2- etc...
+    let Master_Obj = {};
+    for(let i in data){
+        let datasplit = data[i].split('='); // key = model ; value = 2026
+        let key = datasplit[0];
+        let value = datasplit[1];
+        if (key.includes('.')) {
+            let obj = Master_Obj;
+            let key_data = key.split('.'); // style.color => 1-style 2-color
+            for(let e =0; e < key_data.length -1 ; e++){
+                if (!obj[key_data[e]]) {
+                    obj = obj[key_data[e]] = {}; // creat new key
+                } else {
+                    obj = obj[key_data[e]] // set for key ,or found it
+                }
+                obj[key_data[key_data.length -1]] = value;
+            }
+
+        } 
+        else {Master_Obj[key] = value; }
+    }
+    console.log(Master_Obj);
+}
+</script>
+</body>
+</html>

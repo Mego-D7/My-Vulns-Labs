@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Pollution</title>
+</head>
+<body>
+    <center><h1 style="color: rgb(221, 148, 53);">Prototype-Pollution</h1></center>
+    <div class="example2">
+        <h2>Enter Your Name</h2><br>
+    <form>
+        <input type="text" id="input2"><br><br>
+        <input type="hidden" value="" id="token">
+        <button type="submit" id="btn2" style="width: 70px;height: 20px;">Submit</button>
+    </form>
+    </div>
+
+<script>
+    // Example 2 //
+    let Param = {};
+    let res= {};  
+
+    document.getElementById('btn2').addEventListener('click',()=>{
+        let Name = document.getElementById('input2').value;
+        let URL = new URLSearchParams(location.search);
+        URL.set( "Name" , Name );
+        history.replaceState( null , "" , "?" + URL.toString() );
+        Param.token = document.getElementById('token').value;
+        if(res.admin == true && Param.token.length==16){
+        let val = window.prompt("Hello Admin What U Wanna?");
+        eval(val);
+        }
+        });
+
+        let GetEP = location.search.slice(1).split('=');
+        if (GetEP) {
+            let Pieces = GetEP[0].split('*') 
+            .flatMap(piece => piece.split('#'))
+            .flatMap(piece => piece.split('/'))
+            .flatMap(piece => piece.split('&'))
+            .flatMap(piece => piece.split('?'))
+            .filter(piece => piece !== '');
+            let Patternlen = "Param";
+            for (let i in Pieces){Patternlen += `["${Pieces[i]}"]`};
+            if(GetEP[1] == ''){
+            let PatternValue = ['"Yes"', '"No"', 1, 0, true, false];
+            Patternlen += " = " + PatternValue[Math.floor(Math.random() * PatternValue.length)];
+            } 
+            else{Patternlen += ' = "' + GetEP[1] + '"';}
+            Patternlen = Patternlen.replace("__proto__","");
+            Patternlen = Patternlen.replace("admin",""); 
+            console.log(Patternlen);    
+            if(!GetEP[0].includes(".") && !GetEP[0].includes("[") && !GetEP[0].includes("]")){eval(Patternlen)}
+        }
+</script>
+</body>
+</html>
