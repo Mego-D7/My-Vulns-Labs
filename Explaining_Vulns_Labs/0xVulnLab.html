@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>0xVulnLab — Vulnerability Research Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-base: #020408;
+            --bg-surface: #060b10;
+            --bg-card: #0a1118;
+            --bg-card-hover: #0d1520;
+            --sidebar-bg: #040709;
+            --border: rgba(0,245,212,0.12);
+            --border-bright: rgba(0,245,212,0.4);
+            --accent: #00f5d4;
+            --accent-glow: rgba(0,245,212,0.2);
+            --accent-dim: rgba(0,245,212,0.06);
+            --accent2: #00d4b8;
+            --cyan: #4fc3f7;
+            --green: #00e676;
+            --red: #ff4444;
+            --yellow: #ffd700;
+            --text-primary: #e8f4ff;
+            --text-secondary: #7a9bb5;
+            --text-muted: #3a5068;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Inter', sans-serif;
+        }
+
+        html, body { height: 100%; }
+
+        body {
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--sans);
+            font-size: 15px;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Subtle bg texture */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 70% 20%, rgba(0,245,212,0.04) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 20% 80%, rgba(0,184,148,0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ============== LAYOUT ============== */
+        .sidebar {
+            width: 240px;
+            min-width: 240px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .main-area {
+            flex: 1;
+            margin-left: 240px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ============== SIDEBAR ============== */
+        .sidebar-logo {
+            padding: 24px 20px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-logo .brand {
+            font-family: var(--mono);
+            font-weight: 700;
+            font-size: 17px;
+            color: var(--accent2);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-logo .brand-icon {
+            width: 32px; height: 32px;
+            background: var(--accent-dim);
+            border: 1px solid var(--border-bright);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+        }
+        .sidebar-logo .brand-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: var(--mono);
+            margin-top: 3px;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-section {
+            padding: 16px 12px 8px;
+        }
+        .sidebar-section-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 0 8px;
+            margin-bottom: 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            border: 1px solid transparent;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            width: 100%;
+            text-align: left;
+            background: transparent;
+            font-family: var(--sans);
+            margin-bottom: 2px;
+        }
+        .nav-item:hover {
+            background: var(--accent-dim);
+            color: var(--text-primary);
+        }
+        .nav-item.active {
+            background: rgba(139,92,246,0.12);
+            border-color: rgba(139,92,246,0.3);
+            color: var(--accent2);
+        }
+        .nav-item .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+        .nav-item .nav-label { flex: 1; }
+        .nav-item .nav-badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            background: var(--accent-dim);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 1px 6px;
+            border-radius: 10px;
+        }
+        .nav-item.active .nav-badge { color: var(--accent2); border-color: var(--border-bright); }
+        .nav-item .nav-done { font-size: 11px; color: var(--green); }
+
+        /* Difficulty dots in nav */
+        .nav-diff {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        }
+        .nav-diff.easy { background: var(--green); box-shadow: 0 0 6px rgba(0,230,118,0.5); }
+        .nav-diff.medium { background: var(--yellow); box-shadow: 0 0 6px rgba(255,215,0,0.5); }
+        .nav-diff.hard { background: var(--red); box-shadow: 0 0 6px rgba(255,68,68,0.5); }
+
+        /* Logs nav special */
+        .nav-item.logs-nav { color: var(--yellow); }
+        .nav-item.logs-nav:hover { background: rgba(251,191,36,0.08); }
+        .nav-item.logs-nav.active { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 16px 12px;
+            border-top: 1px solid var(--border);
+        }
+        .progress-bar-wrap { margin-bottom: 6px; }
+        .progress-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .progress-label span { color: var(--accent2); font-weight: 600; font-family: var(--mono); }
+        .progress-track {
+            height: 4px;
+            background: rgba(139,92,246,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #00b894);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .export-btn-side {
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px 14px;
+            background: var(--accent-dim);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-family: var(--sans);
+            cursor: pointer;
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .export-btn-side:hover { border-color: var(--border-bright); color: var(--text-primary); }
+
+        /* ============== TOP BAR ============== */
+        .topbar {
+            height: 56px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 28px;
+            gap: 20px;
+            background: rgba(10,11,20,0.85);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+        .topbar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .topbar-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-family: var(--mono);
+        }
+        .topbar-spacer { flex: 1; }
+        .topbar-stat {
+            font-size: 13px;
+            font-family: var(--mono);
+            color: var(--text-secondary);
+        }
+        .topbar-stat strong { color: var(--accent2); font-weight: 600; }
+
+        /* ============== CONTENT ============== */
+        .content-area {
+            flex: 1;
+            padding: 28px 32px;
+            overflow-y: auto;
+            height: calc(100vh - 56px);
+        }
+
+        /* ============== LAB PANELS ============== */
+        .lab-panel { display: none; animation: fadeUp 0.3s ease; }
+        .lab-panel.active { display: block; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+        .panel-header { margin-bottom: 24px; }
+        .panel-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-header .panel-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-family: var(--mono);
+        }
+        .diff {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            font-family: var(--mono);
+        }
+        .diff-easy { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+        .diff-medium { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .diff-hard { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+
+        /* ============== CARDS ============== */
+        .lab-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+        .lab-card:hover { border-color: rgba(139,92,246,0.25); }
+
+        .lab-card label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 7px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .lab-card input,
+        .lab-card textarea,
+        .lab-card select {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(139,92,246,0.15);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 14px;
+            line-height: 1.5;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .lab-card input:focus,
+        .lab-card textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+        }
+        .lab-card textarea { min-height: 90px; resize: vertical; }
+        .lab-card .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+            align-items: center;
+        }
+
+        /* ============== BUTTONS ============== */
+        .btn {
+            padding: 8px 18px;
+            border: 1px solid rgba(139,92,246,0.2);
+            background: rgba(139,92,246,0.06);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            font-family: var(--sans);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .btn:hover {
+            border-color: rgba(139,92,246,0.45);
+            color: var(--text-primary);
+            background: rgba(139,92,246,0.1);
+        }
+        .btn-primary {
+            border-color: var(--accent);
+            background: rgba(139,92,246,0.15);
+            color: var(--accent2);
+            font-weight: 600;
+        }
+        .btn-primary:hover { background: rgba(139,92,246,0.25); box-shadow: 0 0 16px rgba(139,92,246,0.2); }
+        .btn-danger { border-color: rgba(248,113,113,0.35); color: var(--red); }
+        .btn-danger:hover { background: rgba(248,113,113,0.1); }
+        .btn-success { border-color: rgba(52,211,153,0.35); color: var(--green); }
+        .btn-success:hover { background: rgba(52,211,153,0.08); }
+        .btn-warning { border-color: rgba(251,191,36,0.35); color: var(--yellow); }
+        .btn-warning:hover { background: rgba(251,191,36,0.08); }
+
+        /* ============== PASSWORD ============== */
+        .password-wrapper { position: relative; }
+        .password-wrapper input { padding-right: 44px; }
+        .password-wrapper .toggle-pass {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            background: transparent; border: none; color: var(--text-muted);
+            cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px;
+            transition: color 0.18s;
+        }
+        .password-wrapper .toggle-pass:hover { color: var(--accent2); }
+
+        /* ============== TERMINAL ============== */
+        .terminal {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(139,92,246,0.1);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-top: 16px;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.9;
+            color: var(--text-secondary);
+            min-height: 80px;
+            max-height: 230px;
+            overflow-y: auto;
+        }
+        .terminal .line .ok { color: var(--green); }
+        .terminal .line .err { color: var(--red); }
+        .terminal .line .warn { color: var(--yellow); }
+        .terminal .line .info { color: var(--cyan); }
+        .terminal .line .highlight { color: #fb7185; font-weight: 600; }
+
+        /* terminal header dot bar */
+        .terminal-wrap { position: relative; }
+        .terminal-header {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px 0;
+        }
+        .tdot { width: 8px; height: 8px; border-radius: 50%; }
+        .tdot.r { background: #ff5f57; }
+        .tdot.y { background: #febc2e; }
+        .tdot.g { background: #28c840; }
+
+        /* ============== SUCCESS BOX ============== */
+        .success-box {
+            display: none;
+            background: rgba(52,211,153,0.05);
+            border: 1px solid rgba(52,211,153,0.25);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-top: 14px;
+            color: var(--green);
+            font-family: var(--mono);
+            font-size: 14px;
+            line-height: 1.7;
+        }
+        .success-box.show { display: block; animation: fadeUp 0.35s ease; }
+        .success-box .flag {
+            color: var(--yellow);
+            font-weight: 700;
+            background: rgba(251,191,36,0.08);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* ============== WORDLIST ============== */
+        .wordlist { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+        .wordlist span {
+            background: rgba(139,92,246,0.05);
+            border: 1px solid rgba(139,92,246,0.12);
+            padding: 3px 12px;
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .wordlist span:hover { border-color: rgba(139,92,246,0.3); color: var(--text-primary); }
+
+        /* ============== XSS TABS ============== */
+        .xss-tabs { display: flex; gap: 4px; margin-bottom: 16px; padding: 4px; background: rgba(0,0,0,0.3); border-radius: 10px; width: fit-content; }
+        .xss-tabs button {
+            background: transparent; border: none; color: var(--text-muted);
+            padding: 6px 18px; border-radius: 7px; font-family: var(--sans);
+            font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.18s;
+        }
+        .xss-tabs button.active { background: var(--bg-card); color: var(--accent2); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+        .xss-panel { display: none; }
+        .xss-panel.active { display: block; }
+
+        /* ============== DOMAIN BAR ============== */
+        .domain-bar {
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(103,232,249,0.1);
+            border-radius: 8px;
+            padding: 8px 14px;
+            margin-bottom: 14px;
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .domain-bar .url { color: var(--cyan); word-break: break-all; }
+
+        /* ============== DECODED BOX ============== */
+        .decoded-box {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(139,92,246,0.12);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-top: 8px;
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--text-primary);
+            min-height: 50px;
+            word-break: break-all;
+            line-height: 1.7;
+        }
+        .decoded-box .label { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .decoded-box .value { color: var(--accent2); margin-top: 4px; }
+
+        /* ============== LOGS PAGE ============== */
+        #logsPanel { display: none; animation: fadeUp 0.3s ease; }
+        #logsPanel.active { display: block; }
+
+        .log-page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px; margin-bottom: 22px;
+        }
+        .log-page-header h2 {
+            font-size: 22px; font-weight: 700; color: var(--text-primary);
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .log-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .log-stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+        .log-stat-card .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .log-stat-card .stat-val {
+            font-size: 24px;
+            font-weight: 700;
+            font-family: var(--mono);
+            line-height: 1.1;
+        }
+        .stat-val.cyan { color: var(--cyan); }
+        .stat-val.red { color: var(--red); }
+        .stat-val.yellow { color: var(--yellow); }
+        .stat-val.green { color: var(--green); }
+        .stat-val.purple { color: var(--accent); }
+
+        .log-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+        .filter-group { display: flex; gap: 4px; flex-wrap: wrap; padding: 3px; background: rgba(0,0,0,0.3); border-radius: 8px; }
+        .filter-btn {
+            padding: 5px 14px; border: none; border-radius: 6px;
+            background: transparent; color: var(--text-muted);
+            font-family: var(--sans); font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: all 0.18s;
+        }
+        .filter-btn:hover { color: var(--text-primary); }
+        .filter-btn.active { background: var(--bg-card); color: var(--accent2); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+        #logSearch {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 14px;
+            color: var(--text-primary);
+            font-family: var(--mono);
+            font-size: 13px;
+            width: 220px;
+            outline: none;
+            transition: border-color 0.18s;
+        }
+        #logSearch:focus { border-color: var(--accent); }
+
+        .apache-log-viewer {
+            background: #060710;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            font-family: var(--mono);
+            font-size: 13px;
+        }
+        .apache-log-viewer .log-header-bar {
+            background: rgba(139,92,246,0.04);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex; align-items: center; gap: 8px;
+            color: var(--text-muted); font-size: 12px;
+        }
+        .apache-log-viewer .log-header-bar .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .apache-log-viewer .log-header-bar .dot.red { background: #ff5f57; }
+        .apache-log-viewer .log-header-bar .dot.yellow { background: #febc2e; }
+        .apache-log-viewer .log-header-bar .dot.green { background: #28c840; }
+        .apache-log-viewer .log-header-bar .filename { color: var(--accent2); margin-left: 8px; }
+
+        .log-entries { max-height: 520px; overflow-y: auto; padding: 4px 0; }
+        .log-entry {
+            display: flex; gap: 0; padding: 4px 16px; line-height: 1.7;
+            border-bottom: 1px solid rgba(255,255,255,0.02);
+            transition: background 0.12s; flex-wrap: wrap; align-items: center;
+        }
+        .log-entry:hover { background: rgba(139,92,246,0.03); }
+        .log-entry .l-ip { color: var(--cyan); min-width: 124px; margin-right: 8px; }
+        .log-entry .l-dash { color: var(--text-muted); margin-right: 8px; }
+        .log-entry .l-time { color: var(--text-muted); margin-right: 8px; font-size: 12px; }
+        .log-entry .l-req { color: var(--text-primary); margin-right: 8px; flex: 1; word-break: break-all; font-size: 13px; }
+        .log-entry .l-req .method-get { color: var(--green); font-weight: 600; }
+        .log-entry .l-req .method-post { color: var(--yellow); font-weight: 600; }
+        .log-entry .l-req .method-put { color: var(--accent2); font-weight: 600; }
+        .log-entry .l-status { min-width: 38px; margin-right: 8px; font-weight: 700; }
+        .l-status.s2 { color: var(--green); }
+        .l-status.s3 { color: var(--cyan); }
+        .l-status.s4 { color: var(--red); }
+        .l-status.s5 { color: #fb923c; }
+        .log-entry .l-size { color: var(--text-muted); min-width: 52px; margin-right: 8px; font-size: 12px; }
+        .log-entry .l-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 0.5px; align-self: center; }
+        .tag-attack { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+        .tag-success { background: rgba(0,245,212,0.1); color: #00f5d4; border: 1px solid rgba(0,245,212,0.25); }
+        .tag-normal { background: rgba(122,155,181,0.06); color: var(--text-muted); border: 1px solid var(--border); }
+        .tag-recon { background: rgba(79,195,247,0.1); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.25); }
+
+        .log-empty {
+            padding: 60px 20px; text-align: center;
+            color: var(--text-muted); font-size: 14px;
+        }
+        .log-empty .icon { font-size: 38px; margin-bottom: 12px; opacity: 0.5; }
+
+        /* ============== NOTIFICATION ============== */
+        #notifContainer {
+            position: fixed; bottom: 24px; right: 24px; z-index: 999;
+            display: flex; flex-direction: column; gap: 8px;
+            max-width: 360px; pointer-events: none;
+        }
+        .notif {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: var(--text-primary);
+            backdrop-filter: blur(12px);
+            animation: slideIn 0.3s ease;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: flex; align-items: center; gap: 10px;
+            font-family: var(--sans);
+        }
+        .notif.ok { border-color: rgba(52,211,153,0.4); }
+        .notif.err { border-color: rgba(248,113,113,0.4); }
+        .notif.info { border-color: rgba(103,232,249,0.3); }
+        @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+        /* ============== SCROLLBAR ============== */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.2); border-radius: 6px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.35); }
+
+        /* ============== RESPONSIVE ============== */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .main-area { margin-left: 0; }
+            .content-area { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <div class="brand">
+            <div class="brand-icon">🔐</div>
+            <div>
+                <div>0xVulnLab</div>
+                <div class="brand-sub">v2 — Research Lab</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-label">Labs</div>
+
+        <button class="nav-item active" data-lab="lab1">
+            <span class="nav-icon">🔑</span>
+            <span class="nav-label">Auth Bypass</span>
+            <span class="nav-diff easy"></span>
+        </button>
+        <button class="nav-item" data-lab="lab2">
+            <span class="nav-icon">💉</span>
+            <span class="nav-label">XSS</span>
+            <span class="nav-diff easy"></span>
+        </button>
+        <button class="nav-item" data-lab="lab3">
+            <span class="nav-icon">🍃</span>
+            <span class="nav-label">NoSQL Injection</span>
+            <span class="nav-diff medium"></span>
+        </button>
+        <button class="nav-item" data-lab="lab4">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">GraphQL</span>
+            <span class="nav-diff medium"></span>
+        </button>
+        <button class="nav-item" data-lab="lab5">
+            <span class="nav-icon">🧬</span>
+            <span class="nav-label">Proto Pollution</span>
+            <span class="nav-diff hard"></span>
+        </button>
+        <button class="nav-item" data-lab="lab6">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Deserialization</span>
+            <span class="nav-diff hard"></span>
+        </button>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-label">Monitor</div>
+        <button class="nav-item logs-nav" data-lab="logs">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Access Logs</span>
+            <span class="nav-badge" id="logNavBadge">0</span>
+        </button>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="progress-bar-wrap">
+            <div class="progress-label">
+                Progress
+                <span><span id="solvedCount">0</span>/6 solved</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        <button class="export-btn-side" id="exportLogBtn">
+            <span>💾</span> Export Logs
+        </button>
+    </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-area">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <div>
+            <div class="topbar-title" id="topbarTitle">Authentication Bypass</div>
+            <div class="topbar-sub" id="topbarSub">Enumeration &amp; Brute Force</div>
+        </div>
+        <div class="topbar-spacer"></div>
+        <div class="topbar-stat">Logs: <strong id="heroLogCount">0</strong></div>
+        <div class="topbar-stat">Solved: <strong><span id="heroSolved">0</span>/6</strong></div>
+    </header>
+
+    <!-- CONTENT -->
+    <div class="content-area">
+
+        <!-- LAB 1: AUTH -->
+        <div class="lab-panel active" id="lab1">
+            <div class="panel-header">
+                <h2>🔑 Authentication Bypass</h2>
+                <div class="panel-meta">
+                    <span class="diff diff-easy">Easy</span>
+                    <span>Enumeration &amp; Brute Force</span>
+                </div>
+            </div>
+            <div class="lab-card">
+                <label>📂 Wordlists</label>
+                <div class="wordlist">
+                    <span onclick="document.getElementById('authUser').value='admin'">admin</span>
+                    <span onclick="document.getElementById('authUser').value='root'">root</span>
+                    <span onclick="document.getElementById('authUser').value='user'">user</span>
+                    <span onclick="document.getElementById('authUser').value='test'">test</span>
+                    <span onclick="document.getElementById('authUser').value='guest'">guest</span>
+                    <span style="color:var(--text-muted);cursor:default">·</span>
+                    <span onclick="document.getElementById('authPass').value='superman'">superman</span>
+                    <span onclick="document.getElementById('authPass').value='password'">password</span>
+                    <span onclick="document.getElementById('authPass').value='123456'">123456</span>
+                    <span onclick="document.getElementById('authPass').value='admin'">admin</span>
+                    <span onclick="document.getElementById('authPass').value='letmein'">letmein</span>
+                </div>
+                <div style="margin-top:12px;"><label>Username</label><input type="text" id="authUser" placeholder="Enter username" /></div>
+                <div style="margin-top:12px;"><label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="authPass" placeholder="Enter password" />
+                        <button class="toggle-pass" onclick="togglePassword('authPass',this)">👁️</button>
+                    </div>
+                </div>
+                <div class="row">
+                    <button class="btn btn-primary" onclick="authLogin()">🚪 Login</button>
+                    <button class="btn" onclick="loadAuthPayload()">⚡ Load Payload</button>
+                </div>
+                <div class="terminal" id="authTerminal"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                <div class="success-box" id="authSuccess">✅ <strong>Authentication Bypassed!</strong> Flag: <span class="flag">AUTH_BYPASS</span></div>
+            </div>
+        </div>
+
+        <!-- LAB 2: XSS -->
+        <div class="lab-panel" id="lab2">
+            <div class="panel-header">
+                <h2>💉 Cross-Site Scripting (XSS)</h2>
+                <div class="panel-meta">
+                    <span class="diff diff-easy">Easy</span>
+                    <span>Reflected · Stored · DOM</span>
+                </div>
+            </div>
+            <div class="xss-tabs">
+                <button class="active" data-xss="xss1">Reflected</button>
+                <button data-xss="xss2">Stored</button>
+                <button data-xss="xss3">DOM-based</button>
+            </div>
+            <div class="xss-panel active" id="xss1">
+                <div class="lab-card">
+                    <label>🔍 Search Input</label>
+                    <input type="text" id="xssReflectedInput" placeholder="Enter search term" />
+                    <div class="row">
+                        <button class="btn btn-primary" onclick="xssReflected()">Search</button>
+                        <button class="btn" onclick="loadXSSReflected()">⚡ Load Payload</button>
+                    </div>
+                    <div id="xssReflectedOutput" style="margin-top:12px;padding:12px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;min-height:40px;color:var(--text-muted);font-family:var(--mono);font-size:13px;">Results will appear here</div>
+                    <div class="terminal" id="xssTerminal1"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                    <div class="success-box" id="xssSuccess1">✅ <strong>XSS Reflected!</strong> Flag: <span class="flag">XSS_REFLECTED</span></div>
+                </div>
+            </div>
+            <div class="xss-panel" id="xss2">
+                <div class="lab-card">
+                    <label>💬 Leave a comment</label>
+                    <textarea id="xssStoredInput" rows="2" placeholder="Write your comment..."></textarea>
+                    <div class="row">
+                        <button class="btn btn-primary" onclick="xssStored()">Post Comment</button>
+                        <button class="btn" onclick="loadXSSStored()">⚡ Load Payload</button>
+                    </div>
+                    <div id="xssStoredOutput" style="margin-top:12px;padding:12px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;min-height:40px;color:var(--text-muted);font-family:var(--mono);font-size:13px;">No comments yet</div>
+                    <div class="terminal" id="xssTerminal2"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                    <div class="success-box" id="xssSuccess2">✅ <strong>XSS Stored!</strong> Flag: <span class="flag">XSS_STORED</span></div>
+                </div>
+            </div>
+            <div class="xss-panel" id="xss3">
+                <div class="lab-card">
+                    <label>🔗 URL Hash Payload</label>
+                    <input type="text" id="xssDomInput" placeholder="Enter hash payload" />
+                    <div class="row">
+                        <button class="btn btn-primary" onclick="xssDom()">Inject</button>
+                        <button class="btn" onclick="loadXSSDom()">⚡ Load Payload</button>
+                    </div>
+                    <div id="xssDomOutput" style="margin-top:12px;padding:12px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;min-height:40px;color:var(--text-muted);font-family:var(--mono);font-size:13px;">Hash will be processed here</div>
+                    <div class="terminal" id="xssTerminal3"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                    <div class="success-box" id="xssSuccess3">✅ <strong>DOM XSS!</strong> Flag: <span class="flag">XSS_DOM</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LAB 3: NoSQL -->
+        <div class="lab-panel" id="lab3">
+            <div class="panel-header">
+                <h2>🍃 NoSQL Injection</h2>
+                <div class="panel-meta">
+                    <span class="diff diff-medium">Medium</span>
+                    <span>MongoDB $ne operator</span>
+                </div>
+            </div>
+            <div class="lab-card">
+                <label>Username</label><input type="text" id="nosqlUser" placeholder="Enter username" />
+                <div style="margin-top:12px;"><label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="nosqlPass" placeholder="Enter password" />
+                        <button class="toggle-pass" onclick="togglePassword('nosqlPass',this)">👁️</button>
+                    </div>
+                </div>
+                <div class="row">
+                    <button class="btn btn-primary" onclick="nosqlLogin()">🚪 Login</button>
+                    <button class="btn" onclick="loadNosqlPayload()">⚡ Load Payload</button>
+                </div>
+                <div class="terminal" id="nosqlTerminal"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                <div class="success-box" id="nosqlSuccess">✅ <strong>NoSQL Injection!</strong> Flag: <span class="flag">NOSQL_INJECTION</span></div>
+            </div>
+        </div>
+
+        <!-- LAB 4: GraphQL -->
+        <div class="lab-panel" id="lab4">
+            <div class="panel-header">
+                <h2>📊 GraphQL Introspection</h2>
+                <div class="panel-meta">
+                    <span class="diff diff-medium">Medium</span>
+                    <span>Schema discovery &amp; hidden data</span>
+                </div>
+            </div>
+            <div class="lab-card">
+                <label>GraphQL Query</label>
+                <textarea id="graphqlQuery" rows="6"></textarea>
+                <div class="row">
+                    <button class="btn btn-primary" onclick="graphqlExecute()">▶ Execute</button>
+                    <button class="btn" onclick="loadGraphqlPayload()">⚡ Load Payload</button>
+                    <button class="btn" onclick="loadGraphqlSchema()">📖 Show Schema</button>
+                </div>
+                <div class="terminal" id="graphqlTerminal"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                <div class="success-box" id="graphqlSuccess">✅ <strong>GraphQL Introspection!</strong> Flag: <span class="flag">GRAPHQL_INTROSPECTION</span></div>
+            </div>
+        </div>
+
+        <!-- LAB 5: Prototype -->
+        <div class="lab-panel" id="lab5">
+            <div class="panel-header">
+                <h2>🧬 Prototype Pollution</h2>
+                <div class="panel-meta">
+                    <span class="diff diff-hard">Hard</span>
+                    <span>JavaScript prototype tampering</span>
+                </div>
+            </div>
+            <div class="lab-card">
+                <div class="domain-bar">🌐 <span class="url" id="protoUrl">https://0xvulnlab.local/admin</span></div>
+                <label>Query String</label>
+                <input type="text" id="protoInput" />
+                <div class="row">
+                    <button class="btn btn-primary" onclick="protoInject()">💉 Inject</button>
+                    <button class="btn" onclick="loadProtoPayload()">⚡ Load Payload</button>
+                </div>
+                <div class="terminal" id="protoTerminal"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                <div class="success-box" id="protoSuccess">✅ <strong>Prototype Pollution!</strong> Flag: <span class="flag">PROTOTYPE_POLLUTION</span></div>
+            </div>
+        </div>
+
+        <!-- LAB 6: Deserialization -->
+        <div class="lab-panel" id="lab6">
+            <div class="panel-header">
+                <h2>📦 Insecure Deserialization</h2>
+                <div class="panel-meta">
+                    <span class="diff diff-hard">Hard</span>
+                    <span>Cookie object tampering</span>
+                </div>
+            </div>
+            <div class="lab-card">
+                <div class="domain-bar">🌐 <span class="url" id="deserUrl">https://0xvulnlab.local/dashboard</span></div>
+                <label>Current Session Cookie (Base64)</label>
+                <input type="text" id="deserCookie" value="TzoyNDoiU3RkQ2xhc3NfT2JqZWN0XzFfMjMiOjE6e3M6NToiYWRtaW4iO2I6MDt9" readonly />
+                <div style="margin-top:12px;"><label>Decoded Object</label>
+                    <div class="decoded-box" id="decodedDisplay">
+                        <div class="label">🔓 Decoded Value</div>
+                        <div class="value" id="decodedValue">O:24:"StdClass_Object_1_23":1:{s:5:"admin";b:0;}</div>
+                    </div>
+                </div>
+                <div style="margin-top:12px;"><label>Modified Object (Forge Cookie)</label>
+                    <textarea id="deserEdit" rows="3" placeholder="Paste modified object here..."></textarea>
+                </div>
+                <div class="row">
+                    <button class="btn btn-primary" onclick="deserForge()">🔧 Forge &amp; Send Request</button>
+                    <button class="btn btn-warning" onclick="deserManualDecode()">🔓 Manual Decode</button>
+                    <button class="btn" onclick="loadDeserPayload()">⚡ Load Payload</button>
+                </div>
+                <div class="terminal" id="deserTerminal"><div class="line"><span class="info">⏳ Ready</span></div></div>
+                <div class="success-box" id="deserSuccess">✅ <strong>Admin Privileges Granted!</strong> Flag: <span class="flag">DESERIALIZATION</span></div>
+            </div>
+        </div>
+
+        <!-- LOGS PAGE -->
+        <div id="logsPanel">
+            <div class="log-page-header">
+                <h2>📋 Server Access Logs</h2>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-success" onclick="exportApacheLogs()">💾 Export .log</button>
+                    <button class="btn btn-danger" onclick="clearLogs()">🗑️ Clear</button>
+                    <button class="btn" onclick="showLab(lastLab)">← Back</button>
+                </div>
+            </div>
+
+            <div class="log-stats-grid">
+                <div class="log-stat-card"><div class="stat-label">Total Requests</div><div class="stat-val purple" id="statTotal">0</div></div>
+                <div class="log-stat-card"><div class="stat-label">2xx Success</div><div class="stat-val green" id="stat2xx">0</div></div>
+                <div class="log-stat-card"><div class="stat-label">4xx Errors</div><div class="stat-val red" id="stat4xx">0</div></div>
+                <div class="log-stat-card"><div class="stat-label">Attacks</div><div class="stat-val red" id="statAttacks">0</div></div>
+                <div class="log-stat-card"><div class="stat-label">Exploits 💀</div><div class="stat-val yellow" id="statExploits">0</div></div>
+                <div class="log-stat-card"><div class="stat-label">Unique IPs</div><div class="stat-val cyan" id="statIPs">0</div></div>
+            </div>
+
+            <div class="log-controls">
+                <div class="filter-group">
+                    <button class="filter-btn active" data-lfilter="all">All</button>
+                    <button class="filter-btn" data-lfilter="attack">🔴 Attacks</button>
+                    <button class="filter-btn" data-lfilter="success">✅ Exploits</button>
+                    <button class="filter-btn" data-lfilter="recon">🔍 Recon</button>
+                    <button class="filter-btn" data-lfilter="normal">Normal</button>
+                </div>
+                <input type="text" id="logSearch" placeholder="Search logs..." oninput="filterLogs()" />
+            </div>
+
+            <div class="apache-log-viewer">
+                <div class="log-header-bar">
+                    <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                    <span class="filename">0xvulnlab.local — access.log</span>
+                    <span style="margin-left:auto;font-size:11px;color:var(--text-muted);" id="logLiveIndicator">● LIVE</span>
+                </div>
+                <div class="log-entries" id="apacheLogEntries">
+                    <div class="log-empty">
+                        <div class="icon">📭</div>
+                        <div>No log entries yet</div>
+                        <div style="margin-top:6px;font-size:12px;color:var(--text-muted);">Start interacting with the labs to generate access logs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /content-area -->
+</div><!-- /main-area -->
+
+<div id="notifContainer"></div>
+
+<script>
+(function() {
+    'use strict';
+
+    const LAB_TITLES = {
+        lab1: ['Authentication Bypass','Enumeration &amp; Brute Force'],
+        lab2: ['Cross-Site Scripting (XSS)','Reflected · Stored · DOM'],
+        lab3: ['NoSQL Injection','MongoDB $ne operator'],
+        lab4: ['GraphQL Introspection','Schema discovery &amp; hidden data'],
+        lab5: ['Prototype Pollution','JavaScript prototype tampering'],
+        lab6: ['Insecure Deserialization','Cookie object tampering'],
+        logs: ['Server Access Logs','Real-time request monitor'],
+    };
+
+    const solvedLabs = new Set();
+    let currentLab = 'lab1';
+    let lastLab = 'lab1';
+    let currentLogFilter = 'all';
+    let accessLogs = [];
+
+    const IP_POOL = [
+        '192.168.1.100','192.168.1.105','192.168.1.110','10.0.0.47',
+        '172.16.0.23','192.168.50.12','10.10.14.5','192.168.2.200'
+    ];
+    let ipIndex = 0;
+    function nextIP() { return IP_POOL[ipIndex++ % IP_POOL.length]; }
+    function randomSize(base) { return base + Math.floor(Math.random() * 500); }
+
+    function nowTimestamp() {
+        const d = new Date();
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const pad = n => String(n).padStart(2,'0');
+        return `[${pad(d.getDate())}/${months[d.getMonth()]}/${d.getFullYear()}:${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} +0000]`;
+    }
+
+    // NAV
+    const navBtns = document.querySelectorAll('.nav-item[data-lab]');
+
+    window.showLab = function(id) {
+        ['lab1','lab2','lab3','lab4','lab5','lab6'].forEach(k => {
+            const el = document.getElementById(k);
+            if (el) el.classList.remove('active');
+        });
+        document.getElementById('logsPanel').classList.remove('active');
+        if (id === 'logs') {
+            document.getElementById('logsPanel').classList.add('active');
+            renderLogStats();
+            filterLogs();
+        } else {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('active');
+            lastLab = id;
+        }
+        navBtns.forEach(b => b.classList.toggle('active', b.dataset.lab === id));
+        currentLab = id;
+        // Update topbar
+        const info = LAB_TITLES[id];
+        if (info) {
+            document.getElementById('topbarTitle').textContent = info[0].replace(/&amp;/g,'&');
+            document.getElementById('topbarSub').innerHTML = info[1];
+        }
+    };
+
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', function() { showLab(this.dataset.lab); });
+    });
+
+    // XSS TABS
+    document.querySelectorAll('.xss-tabs button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const target = this.dataset.xss;
+            document.querySelectorAll('.xss-tabs button').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            document.querySelectorAll('.xss-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(target)?.classList.add('active');
+        });
+    });
+
+    // LOG FILTERS
+    document.querySelectorAll('.filter-btn[data-lfilter]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentLogFilter = this.dataset.lfilter;
+            document.querySelectorAll('.filter-btn[data-lfilter]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            filterLogs();
+        });
+    });
+
+    window.filterLogs = function() {
+        const search = (document.getElementById('logSearch')?.value || '').toLowerCase();
+        const container = document.getElementById('apacheLogEntries');
+        const entries = container.querySelectorAll('.log-entry');
+        entries.forEach(entry => {
+            const f = entry.dataset.logtype;
+            const text = entry.textContent.toLowerCase();
+            const matchFilter = currentLogFilter === 'all' || f === currentLogFilter;
+            const matchSearch = !search || text.includes(search);
+            entry.style.display = (matchFilter && matchSearch) ? '' : 'none';
+        });
+    };
+
+    // ACCESS LOG ENGINE
+    function addAccessLog({ ip, method, path, status, size, tag, label }) {
+        const ts = nowTimestamp();
+        accessLogs.push({ ip, ts, method, path, status, size, tag, label });
+        const container = document.getElementById('apacheLogEntries');
+        const empty = container.querySelector('.log-empty');
+        if (empty) empty.remove();
+        const statusClass = status >= 500 ? 's5' : status >= 400 ? 's4' : status >= 300 ? 's3' : 's2';
+        const tagClass = tag === 'attack' ? 'tag-attack' : tag === 'success' ? 'tag-success' : tag === 'recon' ? 'tag-recon' : 'tag-normal';
+        const tagLabel = tag === 'attack' ? 'ATTACK' : tag === 'success' ? 'EXPLOIT' : tag === 'recon' ? 'RECON' : 'NORMAL';
+        const methodClass = method === 'GET' ? 'method-get' : method === 'POST' ? 'method-post' : 'method-put';
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.dataset.logtype = tag;
+        div.innerHTML = `
+            <span class="l-ip">${ip}</span>
+            <span class="l-dash">- -</span>
+            <span class="l-time">${ts}</span>
+            <span class="l-req">"<span class="${methodClass}">${method}</span> ${escHtml(path)} HTTP/1.1"</span>
+            <span class="l-status ${statusClass}">${status}</span>
+            <span class="l-size">${size}</span>
+            <span class="l-tag ${tagClass}">${tagLabel}</span>
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        updateLogNav();
+        renderLogStats();
+        filterLogs();
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function updateLogNav() {
+        document.getElementById('logNavBadge').textContent = accessLogs.length;
+        document.getElementById('heroLogCount').textContent = accessLogs.length;
+    }
+
+    function renderLogStats() {
+        const total = accessLogs.length;
+        const s2 = accessLogs.filter(e => e.status >= 200 && e.status < 300).length;
+        const s4 = accessLogs.filter(e => e.status >= 400 && e.status < 500).length;
+        const attacks = accessLogs.filter(e => e.tag === 'attack').length;
+        const exploits = accessLogs.filter(e => e.tag === 'success').length;
+        const ips = new Set(accessLogs.map(e => e.ip)).size;
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('stat2xx').textContent = s2;
+        document.getElementById('stat4xx').textContent = s4;
+        document.getElementById('statAttacks').textContent = attacks;
+        document.getElementById('statExploits').textContent = exploits;
+        document.getElementById('statIPs').textContent = ips;
+    }
+
+    window.clearLogs = function() {
+        accessLogs = [];
+        ipIndex = 0;
+        document.getElementById('apacheLogEntries').innerHTML = `
+            <div class="log-empty">
+                <div class="icon">📭</div>
+                <div>No log entries yet</div>
+                <div style="margin-top:6px;font-size:12px;">Start interacting with the labs to generate access logs</div>
+            </div>`;
+        updateLogNav();
+        renderLogStats();
+    };
+
+    window.exportApacheLogs = function() {
+        if (!accessLogs.length) { showNotif('⚠️ No logs to export', 'err'); return; }
+        let text = `# 0xVulnLab Access Log\n# Format: IP - - [timestamp] "METHOD /path HTTP/1.1" STATUS SIZE [tag]\n# Generated: ${new Date().toISOString()}\n\n`;
+        accessLogs.forEach(e => {
+            text += `${e.ip} - - ${e.ts} "${e.method} ${e.path} HTTP/1.1" ${e.status} ${e.size} [${e.tag.toUpperCase()}]\n`;
+        });
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `0xvulnlab_access_${new Date().toISOString().slice(0,10)}.log`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showNotif('💾 Log exported!', 'ok');
+    };
+
+    document.getElementById('exportLogBtn').addEventListener('click', window.exportApacheLogs);
+
+    // HELPERS
+    function showNotif(msg, type) {
+        const container = document.getElementById('notifContainer');
+        const div = document.createElement('div');
+        div.className = 'notif ' + (type || 'info');
+        div.textContent = msg;
+        container.appendChild(div);
+        setTimeout(() => { if (div.parentNode) div.remove(); }, 3200);
+    }
+
+    function updateSolvedCount() {
+        const n = solvedLabs.size;
+        document.getElementById('solvedCount').textContent = n;
+        document.getElementById('heroSolved').textContent = n;
+        document.getElementById('progressFill').style.width = (n / 6 * 100) + '%';
+        navBtns.forEach(btn => {
+            if (!btn.dataset.lab || btn.dataset.lab === 'logs') return;
+            const done = solvedLabs.has(btn.dataset.lab);
+            let doneEl = btn.querySelector('.nav-done');
+            if (done && !doneEl) {
+                const s = document.createElement('span');
+                s.className = 'nav-done';
+                s.textContent = '✅';
+                btn.appendChild(s);
+            } else if (!done && doneEl) doneEl.remove();
+        });
+    }
+
+    function markSolved(labId, name) {
+        if (solvedLabs.has(labId)) return;
+        solvedLabs.add(labId);
+        updateSolvedCount();
+        showNotif(`🎉 ${name} exploited!`, 'ok');
+    }
+
+    window.togglePassword = function(id, btn) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.type === 'password') { el.type='text'; btn.textContent='🙈'; }
+        else { el.type='password'; btn.textContent='👁️'; }
+    };
+
+    function addTerminalLine(id, text, cls) {
+        const t = document.getElementById(id); if (!t) return;
+        const div = document.createElement('div'); div.className='line';
+        div.innerHTML = `<span class="${cls||'info'}">${text}</span>`;
+        t.appendChild(div); t.scrollTop = t.scrollHeight;
+    }
+    function clearTerminal(id) { const t = document.getElementById(id); if (t) t.innerHTML=''; }
+    function showSuccess(id) { document.getElementById(id)?.classList.add('show'); }
+    function hideSuccess(id) { document.getElementById(id)?.classList.remove('show'); }
+
+    // ===================== LAB 1 =====================
+    window.loadAuthPayload = function() {
+        document.getElementById('authUser').value = 'admin';
+        document.getElementById('authPass').value = 'superman';
+        clearTerminal('authTerminal');
+        addTerminalLine('authTerminal', '⚡ Payload loaded: admin / superman', 'info');
+        hideSuccess('authSuccess');
+        addAccessLog({ ip: nextIP(), method:'GET', path:'/login', status:200, size: randomSize(800), tag:'recon', label:'Auth' });
+    };
+
+    window.authLogin = function() {
+        const user = document.getElementById('authUser').value.trim();
+        const pass = document.getElementById('authPass').value.trim();
+        const ip = nextIP();
+        hideSuccess('authSuccess');
+        clearTerminal('authTerminal');
+        addTerminalLine('authTerminal', `POST /login HTTP/1.1`, 'info');
+        addTerminalLine('authTerminal', `Host: 0xvulnlab.local`, 'info');
+        addTerminalLine('authTerminal', `Content-Type: application/x-www-form-urlencoded`, 'info');
+        addTerminalLine('authTerminal', `Content-Length: ${(user+pass).length+12}`, 'info');
+        addTerminalLine('authTerminal', ``, 'info');
+        addTerminalLine('authTerminal', `username=${user}&password=******`, 'info');
+        if (user === 'admin' && pass === 'superman') {
+            addTerminalLine('authTerminal', `HTTP/1.1 302 Found`, 'ok');
+            addTerminalLine('authTerminal', `Location: /dashboard`, 'ok');
+            addTerminalLine('authTerminal', `Set-Cookie: session=eyJ1c2VyIjoiYWRtaW4ifQ==; HttpOnly`, 'ok');
+            addTerminalLine('authTerminal', `✅ Authentication successful! Redirecting...`, 'ok');
+            showSuccess('authSuccess');
+            markSolved('lab1', 'Authentication Bypass');
+            addAccessLog({ ip, method:'POST', path:'/login', status:302, size: randomSize(400), tag:'success', label:'AUTH' });
+            addAccessLog({ ip, method:'GET', path:'/dashboard', status:200, size: randomSize(3200), tag:'success', label:'AUTH' });
+        } else {
+            addTerminalLine('authTerminal', `HTTP/1.1 401 Unauthorized`, 'err');
+            addTerminalLine('authTerminal', `{"error":"Invalid credentials"}`, 'err');
+            const isObvious = ['admin','root','test','guest','user'].includes(user);
+            addAccessLog({ ip, method:'POST', path:`/login?user=${user}`, status:401, size: randomSize(256), tag: isObvious ? 'attack' : 'normal', label:'AUTH' });
+        }
+    };
+
+    // ===================== LAB 2: XSS =====================
+    window.loadXSSReflected = function() {
+        document.getElementById('xssReflectedInput').value = '<script>alert(1)<\/script>';
+        clearTerminal('xssTerminal1'); hideSuccess('xssSuccess1');
+        addTerminalLine('xssTerminal1','⚡ XSS reflected payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/search', status:200, size:randomSize(1024), tag:'recon', label:'XSS' });
+    };
+    window.loadXSSStored = function() {
+        document.getElementById('xssStoredInput').value = '<img src=x onerror=alert(1)>';
+        clearTerminal('xssTerminal2'); hideSuccess('xssSuccess2');
+        addTerminalLine('xssTerminal2','⚡ XSS stored payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/comments', status:200, size:randomSize(800), tag:'recon', label:'XSS' });
+    };
+    window.loadXSSDom = function() {
+        document.getElementById('xssDomInput').value = '<svg onload=alert(1)>';
+        clearTerminal('xssTerminal3'); hideSuccess('xssSuccess3');
+        addTerminalLine('xssTerminal3','⚡ DOM XSS payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/#<svg onload=alert(1)>', status:200, size:randomSize(600), tag:'recon', label:'XSS' });
+    };
+
+    window.xssReflected = function() {
+        const input = document.getElementById('xssReflectedInput').value;
+        const ip = nextIP();
+        clearTerminal('xssTerminal1'); hideSuccess('xssSuccess1');
+        const out = document.getElementById('xssReflectedOutput');
+        const isXSS = input.includes('<') && (input.includes('script') || input.includes('onerror') || input.includes('onload') || input.includes('svg') || input.includes('alert'));
+        addTerminalLine('xssTerminal1', `GET /search?q=${encodeURIComponent(input)} HTTP/1.1`, 'info');
+        addTerminalLine('xssTerminal1', `Host: 0xvulnlab.local`, 'info');
+        if (isXSS) {
+            addTerminalLine('xssTerminal1', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('xssTerminal1', `<p>Results for: ${input}</p>`, 'highlight');
+            addTerminalLine('xssTerminal1', `⚡ Script executed in browser!`, 'ok');
+            out.innerHTML = `<span style="color:var(--red)">⚡ XSS Triggered: ${escHtml(input)}</span>`;
+            showSuccess('xssSuccess1');
+            markSolved('lab2', 'XSS');
+            addAccessLog({ ip, method:'GET', path:`/search?q=${encodeURIComponent(input).substring(0,40)}`, status:200, size:randomSize(512), tag:'success', label:'XSS' });
+        } else {
+            addTerminalLine('xssTerminal1', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('xssTerminal1', `<p>Results for: ${escHtml(input)}</p>`, 'info');
+            out.innerHTML = `Results for: <strong style="color:var(--text-primary)">${escHtml(input)}</strong>`;
+            addAccessLog({ ip, method:'GET', path:`/search?q=${encodeURIComponent(input).substring(0,40)}`, status:200, size:randomSize(512), tag: input.includes('<') ? 'attack' : 'normal', label:'XSS' });
+        }
+    };
+
+    window.xssStored = function() {
+        const comment = document.getElementById('xssStoredInput').value;
+        const ip = nextIP();
+        clearTerminal('xssTerminal2'); hideSuccess('xssSuccess2');
+        const out = document.getElementById('xssStoredOutput');
+        const isXSS = comment.includes('<') && (comment.includes('script')||comment.includes('onerror')||comment.includes('onload')||comment.includes('svg')||comment.includes('alert'));
+        addTerminalLine('xssTerminal2', `POST /comments HTTP/1.1`, 'info');
+        addTerminalLine('xssTerminal2', `Host: 0xvulnlab.local`, 'info');
+        addTerminalLine('xssTerminal2', `Content-Type: application/x-www-form-urlencoded`, 'info');
+        addTerminalLine('xssTerminal2', `body=${encodeURIComponent(comment)}`, 'info');
+        if (isXSS) {
+            addTerminalLine('xssTerminal2', `HTTP/1.1 201 Created`, 'ok');
+            addTerminalLine('xssTerminal2', `⚡ Stored & executed on next page load!`, 'ok');
+            out.innerHTML = `<span style="color:var(--red)">⚡ Stored XSS: ${escHtml(comment)}</span>`;
+            showSuccess('xssSuccess2');
+            markSolved('lab2', 'Stored XSS');
+            addAccessLog({ ip, method:'POST', path:'/comments', status:201, size:randomSize(200), tag:'success', label:'XSS' });
+        } else {
+            addTerminalLine('xssTerminal2', `HTTP/1.1 201 Created`, 'ok');
+            out.innerHTML = `<div style="padding:6px 0">💬 ${escHtml(comment)}</div>`;
+            addAccessLog({ ip, method:'POST', path:'/comments', status:201, size:randomSize(200), tag: comment.includes('<') ? 'attack' : 'normal', label:'XSS' });
+        }
+    };
+
+    window.xssDom = function() {
+        const input = document.getElementById('xssDomInput').value;
+        const ip = nextIP();
+        clearTerminal('xssTerminal3'); hideSuccess('xssSuccess3');
+        const out = document.getElementById('xssDomOutput');
+        const isXSS = input.includes('<') && (input.includes('script')||input.includes('svg')||input.includes('onerror')||input.includes('onload')||input.includes('alert'));
+        addTerminalLine('xssTerminal3', `GET /#${encodeURIComponent(input)} HTTP/1.1`, 'info');
+        addTerminalLine('xssTerminal3', `Host: 0xvulnlab.local`, 'info');
+        if (isXSS) {
+            addTerminalLine('xssTerminal3', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('xssTerminal3', `document.write(location.hash) → XSS!`, 'highlight');
+            out.innerHTML = `<span style="color:var(--red)">⚡ DOM XSS: ${escHtml(input)}</span>`;
+            showSuccess('xssSuccess3');
+            markSolved('lab2', 'DOM XSS');
+            addAccessLog({ ip, method:'GET', path:`/${encodeURIComponent(input.substring(0,40))}`, status:200, size:randomSize(300), tag:'success', label:'XSS' });
+        } else {
+            addTerminalLine('xssTerminal3', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('xssTerminal3', `document.write("${escHtml(input)}")`, 'info');
+            out.innerHTML = `📍 Hash: <span style="color:var(--text-secondary)">${escHtml(input)}</span>`;
+            addAccessLog({ ip, method:'GET', path:`/#${encodeURIComponent(input).substring(0,40)}`, status:200, size:randomSize(300), tag: input.includes('<') ? 'attack' : 'normal', label:'XSS' });
+        }
+    };
+
+    // ===================== LAB 3: NoSQL =====================
+    window.loadNosqlPayload = function() {
+        document.getElementById('nosqlUser').value = 'admin';
+        document.getElementById('nosqlPass').value = '{"$ne": ""}';
+        clearTerminal('nosqlTerminal'); hideSuccess('nosqlSuccess');
+        addTerminalLine('nosqlTerminal','⚡ NoSQL payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/login', status:200, size:randomSize(900), tag:'recon', label:'NOSQL' });
+    };
+
+    window.nosqlLogin = function() {
+        const user = document.getElementById('nosqlUser').value;
+        const pass = document.getElementById('nosqlPass').value;
+        const ip = nextIP();
+        clearTerminal('nosqlTerminal'); hideSuccess('nosqlSuccess');
+        addTerminalLine('nosqlTerminal', `POST /login HTTP/1.1`, 'info');
+        addTerminalLine('nosqlTerminal', `Host: 0xvulnlab.local`, 'info');
+        addTerminalLine('nosqlTerminal', `Content-Type: application/json`, 'info');
+        addTerminalLine('nosqlTerminal', `{"username": "${escHtml(user)}", "password": ${escHtml(pass)}}`, 'info');
+        if (pass.includes('$ne') || pass.includes('$regex') || pass.includes('$gt')) {
+            addTerminalLine('nosqlTerminal', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('nosqlTerminal', `{"status":"success","user":"administrator"}`, 'ok');
+            addTerminalLine('nosqlTerminal', `✅ NoSQL injection successful!`, 'ok');
+            showSuccess('nosqlSuccess');
+            markSolved('lab3', 'NoSQL Injection');
+            addAccessLog({ ip, method:'POST', path:'/login?user=admin%27--', status:200, size:randomSize(1024), tag:'success', label:'NOSQL' });
+        } else {
+            addTerminalLine('nosqlTerminal', `HTTP/1.1 401 Unauthorized`, 'err');
+            addTerminalLine('nosqlTerminal', `{"status":"error","message":"Invalid credentials"}`, 'err');
+            const isPayload = pass.includes('$') || pass.includes('{');
+            addAccessLog({ ip, method:'POST', path:'/login', status:401, size:randomSize(256), tag: isPayload ? 'attack' : 'normal', label:'NOSQL' });
+        }
+    };
+
+    // ===================== LAB 4: GraphQL =====================
+    window.loadGraphqlPayload = function() {
+        document.getElementById('graphqlQuery').value = `query {\n  post(id: 3) {\n    id\n    title\n    content\n    postPassword\n  }\n}`;
+        clearTerminal('graphqlTerminal'); hideSuccess('graphqlSuccess');
+        addTerminalLine('graphqlTerminal','⚡ GraphQL payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/graphql', status:200, size:randomSize(500), tag:'recon', label:'GRAPHQL' });
+    };
+    window.loadGraphqlSchema = function() {
+        document.getElementById('graphqlQuery').value = `query {\n  __schema {\n    types {\n      name\n      fields { name }\n    }\n  }\n}`;
+        clearTerminal('graphqlTerminal'); hideSuccess('graphqlSuccess');
+        addTerminalLine('graphqlTerminal','📖 Introspection query loaded','info');
+        addAccessLog({ ip:nextIP(), method:'POST', path:'/graphql/__schema', status:200, size:randomSize(2048), tag:'recon', label:'GRAPHQL' });
+    };
+
+    window.graphqlExecute = function() {
+        const q = document.getElementById('graphqlQuery').value;
+        const ip = nextIP();
+        clearTerminal('graphqlTerminal'); hideSuccess('graphqlSuccess');
+        addTerminalLine('graphqlTerminal', `POST /graphql HTTP/1.1`, 'info');
+        addTerminalLine('graphqlTerminal', `Host: 0xvulnlab.local`, 'info');
+        addTerminalLine('graphqlTerminal', `Content-Type: application/json`, 'info');
+        if (q.includes('postPassword') && q.includes('id: 3')) {
+            addTerminalLine('graphqlTerminal', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('graphqlTerminal', `{"data":{"post":{"id":"3","title":"Hidden Post","postPassword":"s3cr3t_p0st_p4ssw0rd"}}}`, 'ok');
+            addTerminalLine('graphqlTerminal', `✅ Hidden field leaked!`, 'ok');
+            showSuccess('graphqlSuccess');
+            markSolved('lab4', 'GraphQL Introspection');
+            addAccessLog({ ip, method:'POST', path:'/graphql/v1', status:200, size:randomSize(1200), tag:'success', label:'GRAPHQL' });
+        } else if (q.includes('__schema')) {
+            addTerminalLine('graphqlTerminal', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('graphqlTerminal', `{"data":{"__schema":{"types":[...]}}}`, 'ok');
+            addTerminalLine('graphqlTerminal', `📖 Schema exposed — field "postPassword" found!`, 'warn');
+            addAccessLog({ ip, method:'POST', path:'/graphql?query=__schema', status:200, size:randomSize(3000), tag:'recon', label:'GRAPHQL' });
+        } else {
+            addTerminalLine('graphqlTerminal', `HTTP/1.1 400 Bad Request`, 'err');
+            addTerminalLine('graphqlTerminal', `{"errors":[{"message":"Invalid query"}]}`, 'err');
+            addAccessLog({ ip, method:'POST', path:'/graphql', status:400, size:randomSize(128), tag:'normal', label:'GRAPHQL' });
+        }
+    };
+
+    // ===================== LAB 5: Prototype Pollution =====================
+    window.loadProtoPayload = function() {
+        document.getElementById('protoInput').value = '?__proto__.admin=true';
+        document.getElementById('protoUrl').textContent = 'https://0xvulnlab.local/admin?__proto__[admin]=true';
+        clearTerminal('protoTerminal'); hideSuccess('protoSuccess');
+        addTerminalLine('protoTerminal','⚡ Prototype pollution payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/admin', status:403, size:randomSize(512), tag:'recon', label:'PROTO' });
+    };
+
+    window.protoInject = function() {
+        const input = document.getElementById('protoInput').value;
+        const ip = nextIP();
+        document.getElementById('protoUrl').textContent = 'https://0xvulnlab.local/admin' + input;
+        clearTerminal('protoTerminal'); hideSuccess('protoSuccess');
+        addTerminalLine('protoTerminal', `GET /admin${escHtml(input)} HTTP/1.1`, 'info');
+        addTerminalLine('protoTerminal', `Host: 0xvulnlab.local`, 'info');
+        addTerminalLine('protoTerminal', `User-Agent: Prototype-Pollution-Exploit`, 'info');
+        if (input.includes('__proto__') && input.includes('admin=true')) {
+            addTerminalLine('protoTerminal', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('protoTerminal', `🧬 Object.prototype.admin = true`, 'highlight');
+            addTerminalLine('protoTerminal', `✅ admin = true! Access granted!`, 'ok');
+            showSuccess('protoSuccess');
+            markSolved('lab5', 'Prototype Pollution');
+            addAccessLog({ ip, method:'GET', path:`/admin${encodeURIComponent(input).substring(0,50)}`, status:200, size:randomSize(800), tag:'success', label:'PROTO' });
+        } else if (input.includes('__proto__')) {
+            addTerminalLine('protoTerminal', `HTTP/1.1 200 OK`, 'warn');
+            addTerminalLine('protoTerminal', `❌ admin = undefined`, 'err');
+            addTerminalLine('protoTerminal', `⚠️ Try: ?__proto__.admin=true`, 'warn');
+            addAccessLog({ ip, method:'GET', path:`/admin${encodeURIComponent(input).substring(0,50)}`, status:200, size:randomSize(512), tag:'attack', label:'PROTO' });
+        } else {
+            addTerminalLine('protoTerminal', `HTTP/1.1 200 OK`, 'info');
+            addTerminalLine('protoTerminal', `❌ No pollution detected`, 'err');
+            addAccessLog({ ip, method:'GET', path:`/admin${encodeURIComponent(input).substring(0,50)}`, status:200, size:randomSize(512), tag:'normal', label:'PROTO' });
+        }
+    };
+
+    // ===================== LAB 6: Deserialization =====================
+    window.loadDeserPayload = function() {
+        const payload = 'O:24:"StdClass_Object_1_23":1:{s:5:"admin";b:1;}';
+        document.getElementById('deserEdit').value = payload;
+        document.getElementById('decodedValue').textContent = payload;
+        document.getElementById('deserUrl').textContent = 'https://0xvulnlab.local/admin-panel';
+        clearTerminal('deserTerminal'); hideSuccess('deserSuccess');
+        addTerminalLine('deserTerminal','⚡ Deserialization payload loaded','info');
+        addAccessLog({ ip:nextIP(), method:'GET', path:'/dashboard', status:200, size:randomSize(2400), tag:'recon', label:'DESER' });
+    };
+
+    window.deserManualDecode = function() {
+        const cookie = document.getElementById('deserCookie').value;
+        try {
+            const decoded = decodeURIComponent(escape(atob(cookie)));
+            document.getElementById('decodedValue').textContent = decoded;
+            document.getElementById('deserEdit').value = decoded;
+            clearTerminal('deserTerminal');
+            addTerminalLine('deserTerminal', `🔓 Decoded cookie:`, 'info');
+            addTerminalLine('deserTerminal', decoded, 'ok');
+            addTerminalLine('deserTerminal', `📝 Now edit and forge!`, 'info');
+            addAccessLog({ ip:nextIP(), method:'GET', path:'/my-account', status:200, size:randomSize(1800), tag:'recon', label:'DESER' });
+        } catch(e) {
+            showNotif('❌ Invalid Base64', 'err');
+        }
+    };
+
+    window.deserForge = function() {
+        const edited = document.getElementById('deserEdit').value;
+        const ip = nextIP();
+        clearTerminal('deserTerminal'); hideSuccess('deserSuccess');
+        document.getElementById('deserUrl').textContent = 'https://0xvulnlab.local/admin-panel';
+        const encoded = btoa(unescape(encodeURIComponent(edited)));
+        addTerminalLine('deserTerminal', `GET /admin-panel HTTP/1.1`, 'info');
+        addTerminalLine('deserTerminal', `Host: 0xvulnlab.local`, 'info');
+        addTerminalLine('deserTerminal', `Cookie: session=${encoded.substring(0,30)}...`, 'info');
+        if (edited.includes('admin') && edited.includes('b:1')) {
+            addTerminalLine('deserTerminal', `HTTP/1.1 200 OK`, 'ok');
+            addTerminalLine('deserTerminal', `🔓 Deserializing: {"admin": true}`, 'ok');
+            addTerminalLine('deserTerminal', `✅ Admin privileges granted!`, 'ok');
+            showSuccess('deserSuccess');
+            markSolved('lab6', 'Insecure Deserialization');
+            document.getElementById('deserCookie').value = encoded;
+            document.getElementById('decodedValue').textContent = edited;
+            addAccessLog({ ip, method:'GET', path:'/admin-panel', status:200, size:randomSize(3200), tag:'success', label:'DESER' });
+            addAccessLog({ ip, method:'GET', path:`/etc/passwd`, status:403, size:128, tag:'attack', label:'DESER' });
+        } else if (edited.includes('admin')) {
+            addTerminalLine('deserTerminal', `⚠️ admin exists but not elevated — set b:1`, 'warn');
+            addAccessLog({ ip, method:'GET', path:'/admin-panel', status:403, size:randomSize(256), tag:'attack', label:'DESER' });
+        } else {
+            addTerminalLine('deserTerminal', `❌ Invalid object format`, 'err');
+            addAccessLog({ ip, method:'GET', path:'/admin-panel', status:400, size:randomSize(128), tag:'attack', label:'DESER' });
+        }
+    };
+
+    // INIT
+    setTimeout(() => {
+        addAccessLog({ ip:'192.168.1.1',   method:'GET', path:'/',            status:200, size:2048, tag:'normal', label:'SYSTEM' });
+        addAccessLog({ ip:'10.0.0.1',      method:'GET', path:'/robots.txt',  status:200, size:64,   tag:'recon',  label:'SYSTEM' });
+        addAccessLog({ ip:'192.168.1.100', method:'GET', path:'/admin',       status:403, size:512,  tag:'recon',  label:'SYSTEM' });
+        addAccessLog({ ip:'192.168.1.105', method:'GET', path:'/.env',        status:404, size:128,  tag:'attack', label:'SYSTEM' });
+        addAccessLog({ ip:'10.0.0.47',     method:'GET', path:'/phpmyadmin/', status:404, size:256,  tag:'attack', label:'SYSTEM' });
+        addAccessLog({ ip:'172.16.0.23',   method:'GET', path:`/<script>alert(1)<\/script>`, status:400, size:256, tag:'attack', label:'SYSTEM' });
+    }, 300);
+
+    showNotif('🚀 0xVulnLab v3 — happy hacking!', 'info');
+    console.log('🔐 0xVulnLab v3 loaded');
+})();
+</script>
+</body>
+</html>
